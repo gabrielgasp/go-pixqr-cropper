@@ -54,20 +54,20 @@ func worker(jobs <-chan fs.DirEntry, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for file := range jobs {
-		cropImage(file)
+		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+			continue
+		}
+
+		cropImage(file.Name())
 	}
 }
 
-func cropImage(file fs.DirEntry) {
-	if !shouldCrop(file) {
-		return
-	}
-
-	inputFilePath := filepath.Join(inputDir, file.Name())
+func cropImage(fileName string) {
+	inputFilePath := filepath.Join(inputDir, fileName)
 
 	img, err := imaging.Open(inputFilePath)
 	if err != nil {
-		log.Printf("failed to open image '%s': %v", file.Name(), err)
+		log.Printf("failed to open image '%s': %v", fileName, err)
 		return
 	}
 
@@ -78,25 +78,17 @@ func cropImage(file fs.DirEntry) {
 
 	croppedImg := imaging.Crop(img, cropRect)
 
-	outputFilePath := filepath.Join(outputDir, file.Name())
+	outputFilePath := filepath.Join(outputDir, fileName)
 
 	err = imaging.Save(croppedImg, outputFilePath)
 	if err != nil {
-		log.Printf("failed to save image '%s': %v", file.Name(), err)
+		log.Printf("failed to save image '%s': %v", fileName, err)
 		return
 	}
 
 	err = os.Remove(inputFilePath)
 	if err != nil {
-		log.Printf("failed to delete original image '%s': %v", file.Name(), err)
+		log.Printf("failed to delete original image '%s': %v", fileName, err)
 		return
 	}
-}
-
-func shouldCrop(file fs.DirEntry) bool {
-	if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
-		return false
-	}
-
-	return true
 }
