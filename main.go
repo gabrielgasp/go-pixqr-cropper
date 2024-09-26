@@ -27,12 +27,12 @@ var inputDir = "input"
 var outputDir = "output"
 
 func main() {
-	files, err := os.ReadDir(inputDir)
+	dirItems, err := os.ReadDir(inputDir)
 	if err != nil {
 		log.Fatalf("Failed to read input directory: %v", err)
 	}
 
-	jobs := make(chan fs.DirEntry, len(files))
+	jobs := make(chan fs.DirEntry, len(dirItems))
 	var wg sync.WaitGroup
 
 	for i := 0; i < workerCount; i++ {
@@ -40,8 +40,8 @@ func main() {
 		go worker(jobs, &wg)
 	}
 
-	for _, file := range files {
-		jobs <- file
+	for _, dirItem := range dirItems {
+		jobs <- dirItem
 	}
 
 	close(jobs)
@@ -53,21 +53,21 @@ func main() {
 func worker(jobs <-chan fs.DirEntry, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for file := range jobs {
-		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+	for dirItem := range jobs {
+		if dirItem.IsDir() || strings.HasPrefix(dirItem.Name(), ".") {
 			continue
 		}
 
-		cropImage(file.Name())
+		cropImage(dirItem.Name())
 	}
 }
 
-func cropImage(fileName string) {
-	inputFilePath := filepath.Join(inputDir, fileName)
+func cropImage(imageName string) {
+	inputFilePath := filepath.Join(inputDir, imageName)
 
 	img, err := imaging.Open(inputFilePath)
 	if err != nil {
-		log.Printf("failed to open image '%s': %v", fileName, err)
+		log.Printf("failed to open image '%s': %v", imageName, err)
 		return
 	}
 
@@ -78,17 +78,17 @@ func cropImage(fileName string) {
 
 	croppedImg := imaging.Crop(img, cropRect)
 
-	outputFilePath := filepath.Join(outputDir, fileName)
+	outputFilePath := filepath.Join(outputDir, imageName)
 
 	err = imaging.Save(croppedImg, outputFilePath)
 	if err != nil {
-		log.Printf("failed to save image '%s': %v", fileName, err)
+		log.Printf("failed to save image '%s': %v", imageName, err)
 		return
 	}
 
 	err = os.Remove(inputFilePath)
 	if err != nil {
-		log.Printf("failed to delete original image '%s': %v", fileName, err)
+		log.Printf("failed to delete original image '%s': %v", imageName, err)
 		return
 	}
 }
